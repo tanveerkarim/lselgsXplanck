@@ -73,10 +73,10 @@ def set_window_here(ztomo_bins_dict={}, nside=1024, mask = None, cmb=False,
         
     Parameters
     ----------
-    ztomo_bins_dict : dictionary processed by source_tomo_bins function that contains information on the different tomographic bins for Skylens
+    ztomo_bins_dict : dictionary processed by source_tomo_bins function that 
+                      contains information on the different tomographic bins for Skylens
     nside : NSIDE of the window maps based on healpix formalism
     mask : survey geometry mask in healpix format, same NSIDE as nside
-    #unit_win : flag for using test unit window 
     cmb : flag for using cmb window function
     window_map_arr : numpy array containing list of window map file paths
     
@@ -86,7 +86,8 @@ def set_window_here(ztomo_bins_dict={}, nside=1024, mask = None, cmb=False,
     """
     
     
-    #FIXME: make sure nside, etc. are properly matched. if possible, use same nside for cmb and galaxy maps. Use ud_grade where necessary.
+    #FIXME: make sure nside, etc. are properly matched. if possible, use same nside for cmb and galaxy maps. 
+    # Use ud_grade where necessary.
     #assert window_map_file != None, "Provide relevant window maps"
     if window_map_arr is not None:
         pass
@@ -94,22 +95,19 @@ def set_window_here(ztomo_bins_dict={}, nside=1024, mask = None, cmb=False,
         assert 1 != 1, "Provide relevant window maps"
     
     for i in np.arange(ztomo_bins_dict['n_bins']):
-        #if unit_win:
-        #    cl_map=hp.ma(np.ones(12*nside*nside))
-        #    cl_i=1
         if cmb:
             window_map=np.load(window_map_arr[i])
             window_map_noise = window_map
             print("processing cmb lensing window")
-        else:
-            window_map=np.load(window_map_arr[i]) #randoms are the window function.
+        else: #this is for galaxies 
+            window_map=np.load(window_map_arr[i])
             window_map = window_map.astype(np.float64)
             window_map_noise = np.sqrt(window_map)
         
-        if mask is None:
-            mask=(window_map != hp.UNSEEN) #FIXME: input proper mask if possible
-        window_map[~mask]=hp.UNSEEN
-        window_map_noise[~mask]=hp.UNSEEN
+            if mask is None:
+                mask=(window_map != hp.UNSEEN) #FIXME: input proper mask if possible
+            window_map[~mask]=hp.UNSEEN
+            window_map_noise[~mask]=hp.UNSEEN
         
         ztomo_bins_dict[i]['window']=window_map
         ztomo_bins_dict[i]['window_N']=window_map_noise #window of noise 
