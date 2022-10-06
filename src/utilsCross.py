@@ -305,7 +305,6 @@ def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax=1090,
     zs : redshift of surface of last scattering (or source)
     l : numpy array of multipole range
     use_window = Flag to use the CMB window function
-    #unit_win = flag for using test unit window
     nside = NSIDE of the window maps based on healpix formalism
     zmax = power spectrum of CMB lensing should be integrated up to this value; default is 1090; for AbacusSummit this is 2.45
     SN_file = file path to the CMB SNR 
@@ -331,15 +330,11 @@ def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax=1090,
                                  p_zspec=np.atleast_1d(1), ndensity=np.array([0]), bg1=np.array([1]), bz1 = None)
     ztomo_bins_dict['n_bins']=1 #easy to remember the counts
     ztomo_bins_dict['zmax']=np.atleast_1d([zmax])
-    #ztomo_bins_dict['zp_sigma']=0
-    #ztomo_bins_dict['zp_bias']=0
     ztomo_bins_dict['nz']=1
 
-    SN_read=np.genfromtxt(SN_file, names=('l','nl','nl+cl'))  #shot noise
-    SN_intp=interp1d(SN_read['l'], SN_read['nl'],bounds_error=False, fill_value=0) #FIXME: make sure using the correct noise power spectra.
-    SN=SN_intp(l) ##WHY INTERPOLATE?
-#    SN *= 0 #DON'T DO THIS WHEN USING REAL DATA
-#     SN=np.ones_like(l)
+    SN_read=np.genfromtxt(SN_file, names=('l','nl','nl+cl'))
+    SN_intp=interp1d(SN_read['l'], SN_read['nl'],bounds_error=False, fill_value=0)
+    SN=SN_intp(l) 
     ztomo_bins_dict['SN']={}
     ztomo_bins_dict['SN']['kappa']=SN.reshape(len(SN),1,1)
     if use_window:
@@ -347,7 +342,7 @@ def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax=1090,
                                    nside=nside, cmb=True, window_map_arr = cmb_window_map_arr)
     return ztomo_bins_dict
 
-def DESI_elg_bins(ntomo_bins=1, nside=256, use_window=True, bg1=None, bz1 = None,
+def DESI_elg_bins(ntomo_bins=1, nside=1024, use_window=True, bg1=None, bz1 = None,
                   l=None, mag_fact=0, ztomo_bins=None, dndz_arr = None, 
                   gal_window_arr = None):
     """
