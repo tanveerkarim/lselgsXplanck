@@ -162,23 +162,16 @@ def zbin_pz_norm(ztomo_bins_dict={},tomo_bin_indx=None,zbin_centre=None,p_zspec=
     ztomo_bins_dict[i]['mag_fact']=mag_fact  #FIXME: You need to figure out the magnification bias prefactor. For example, see appendix B of https://arxiv.org/pdf/1803.08915.pdf
     ztomo_bins_dict[i]['shear_m_bias'] = 1.  #
     
-    
-    #print("***")
-    #print("zbin_pz_norm")
-    # print(f"dzspec: {dzspec}")
-    #print(f"pz: {ztomo_bins_dict[i]['pz']}")
-    #print(f"pzdzc: {ztomo_bins_dict[i]['pzdz']}")
-    
     #convert k to ell
     zm=np.sum(ztomo_bins_dict[i]['z']*ztomo_bins_dict[i]['pzdz'])/ztomo_bins_dict[i]['Norm']
-    #ztomo_bins_dict[i]['lm']=k_max*cosmo_h.comoving_transverse_distance(zm).value #not being used at the moment; if needed, talk to Sukhdeep 
+    #ztomo_bins_dict[i]['lm']=k_max*cosmo_h.comoving_transverse_distance(zm).value #not being used at the moment; if needed, talk to Sukhdeep
     return ztomo_bins_dict
 
 def source_tomo_bins(zphoto_bin_centre=None, p_zphoto=None, ntomo_bins=None, 
                      ndensity=2400/3600, ztomo_bins=None, nside=256,
                      use_window=False, bg1=None, bz1 = None, l=None, mag_fact=0,
-                     use_shot_noise=True, 
-                     gal_window_arr = None): # ,n_zspec=100, k_max=0.3, zspec_bin_centre=None):
+                     use_shot_noise=True, gal_mask = None,
+                     gal_window_arr = None):
     """
         Returns dict object with tomographic information of galaxies as input for Skylens.
         
@@ -195,6 +188,7 @@ def source_tomo_bins(zphoto_bin_centre=None, p_zphoto=None, ntomo_bins=None,
         l (np.array) : array of multipoles
         mag_fact (float) : magnification bias factor
         use_shot_noise (bool) : flag to include shot noise
+        gal_mask (str) : file location for galaxy mask 
         gal_window_arr (np.array) : array containing file paths to galaxy window functions
         
         ##--DEPRECATED--##
@@ -205,27 +199,10 @@ def source_tomo_bins(zphoto_bin_centre=None, p_zphoto=None, ntomo_bins=None,
         k_max : cut in k-space; CHECK FOR BUG
     """
 
-    # if ztomo_bins is not None:
-    #     pass
-    # else:
-    #     assert 1 != 1, "Must provide ztomo_bins - the bin edges array"
-    
     ztomo_bins_dict={} #dictionary of tomographic bins
 
     if ntomo_bins is None:
         ntomo_bins=1
-
-    #if ztomo_bins is None:
-    #    ztomo_bins=np.linspace(min(zphoto_bin_centre)-0.0001,max(zphoto_bin_centre)+0.0001,ntomo_bins+1)
-    #if zspec_bin_centre is None: #histogram of dndz; defines bin centres
-    #    zspec_bin_centre=np.linspace(0,max(ztomo_bins)+1,n_zspec)
-    #dzspec=np.gradient(zspec_bin_centre)
-    #dzphoto=np.gradient(zphoto_bin_centre) if len(zphoto_bin_centre)>1 else [1]
-    #zphoto_bin_centre=np.array(zphoto_bin_centre)
-
-    #zl_kernel=np.linspace(0,max(zbin_centre),50) #galaxy position kernel; identical to b*dndz
-    #lu=Tracer_utils() 
-    #cosmo_h=cosmo_h_PL #cosmology parameters in astropy convention; default is Skylens default
 
     zmax=max(ztomo_bins)
 
@@ -237,31 +214,11 @@ def source_tomo_bins(zphoto_bin_centre=None, p_zphoto=None, ntomo_bins=None,
     for i in np.arange(ntomo_bins):
         ztomo_bins_dict[i]={}
         dzphoto=np.gradient(zphoto_bin_centre[i]) if len(zphoto_bin_centre[i])>1 else [1]
-        #indx=zphoto_bin_centre.searchsorted(ztomo_bins[i:i+2]) #find bins that belong to this photometric bin
-        #if indx[0]==indx[1]: #if only one bin
-        #    indx[1]=-1
-        #zbin_centre=zphoto_bin_centre[indx[0]:indx[1]] #selects bin centres belonging to tomographic bin i
         zbin_centre = np.array(zphoto_bin_centre[i])
-        p_zspec=p_zphoto[i]#[indx[0]:indx[1]] #assuming spectroscopic and photometric dndz are same; CHANGE IF NOT 
-        nz=ndensity[i]*p_zspec[i]*dzphoto#[indx[0]:indx[1]]
+        p_zspec=p_zphoto[i] 
+        nz=ndensity[i]*p_zspec[i]*dzphoto 
         ns_i=nz.sum()
-        
-        # print(f"tomo bin # {i}")
-        # if bg1 is not None:
-        #     print(f"Passing linear bias: {bg1[i]}")
-        # else:
-        #     print("bg1 is None")
-        # if bz1 is not None:
-        #     print(f"Passing redshift dependent bias: {bz1[i]}")
-        # else:
-        #     print("bz1 is None")
-        
-        # print("***")
-        # print("source tomo bins")
-        # print(f"dzphoto: {dzphoto}")
-        # print(f"p_zspec: {p_zspec}")
-        # print("***")
-        
+              
         if bg1 is not None:
             ztomo_bins_dict = zbin_pz_norm(ztomo_bins_dict=ztomo_bins_dict, tomo_bin_indx=i, 
                                        zbin_centre=zbin_centre, 
@@ -277,12 +234,8 @@ def source_tomo_bins(zphoto_bin_centre=None, p_zphoto=None, ntomo_bins=None,
         if use_shot_noise:
             ztomo_bins_dict['SN']['galaxy'][:,i,i]=galaxy_shot_noise_calc(zg1=ztomo_bins_dict[i],
                                                                   zg2=ztomo_bins_dict[i])
-            #the following is set in the CMB lensing bin
-            #zs_bins['SN']['kappa'][:,i,i]=shear_shape_noise_calc(zs1=zs_bins[i],zs2=zs_bins[i],
-            #                                                     sigma_gamma=sigma_gamma) #FIXME: This is almost certainly not correct
 
     ztomo_bins_dict['n_bins']=ntomo_bins #easy to remember the counts
-    #ztomo_bins_dict['z_lens_kernel']=zl_kernel
     ztomo_bins_dict['zmax']=zmax
     ztomo_bins_dict['zp']=zphoto_bin_centre
     ztomo_bins_dict['pz']=p_zphoto
@@ -290,7 +243,7 @@ def source_tomo_bins(zphoto_bin_centre=None, p_zphoto=None, ntomo_bins=None,
     
     if use_window:
         ztomo_bins_dict=set_window_here(ztomo_bins_dict=ztomo_bins_dict,nside=nside, 
-                                       window_map_arr = gal_window_arr)
+                                        mask = gal_mask, window_map_arr = gal_window_arr)
     return ztomo_bins_dict
 
 def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax=1090, 
@@ -342,7 +295,7 @@ def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax=1090,
 
 def DESI_elg_bins(ntomo_bins=1, nside=1024, use_window=True, bg1=None, bz1 = None,
                   l=None, mag_fact=0, ztomo_bins=None, dndz_arr = None, 
-                  gal_window_arr = None):
+                  gal_mask = None, gal_window_arr = None):
     """
     Returns tomographic bin Skylens object for power spectrum measurement
     
@@ -358,6 +311,7 @@ def DESI_elg_bins(ntomo_bins=1, nside=1024, use_window=True, bg1=None, bz1 = Non
     mag_fact : (float) magnification bias
     ztomo_bins : (dict) object containing information on tomographic bins 
     dndz_arr : (np.array) array containing file paths to dndz 
+    gal_mask (str) : file location for galaxy mask
     gal_window_arr : (np.array) array containing file paths to galaxy window functions
     
     Returns
@@ -406,11 +360,6 @@ def DESI_elg_bins(ntomo_bins=1, nside=1024, use_window=True, bg1=None, bz1 = Non
         zphoto_bin_centre[i] = dndz_arr['zrange']
         p_zphoto[i] = dndz_arr['dndz']
         
-        
-        #confirm bz1 is correct shape
-        #print(f'bz1 len: {len(bz1[i])}')
-        #print(f'zphoto_bin_centre len: {len(zphoto_bin_centre[i])}')
-        
         if bz1[i] is not None:
             assert len(bz1[i]) == len(zphoto_bin_centre[i]), "Provide proper redshift dependent bias"
         
@@ -420,7 +369,8 @@ def DESI_elg_bins(ntomo_bins=1, nside=1024, use_window=True, bg1=None, bz1 = Non
         ndensity[i] = ns
         print(zmin,zmax,ztomo_bins,ns)
     
-    if ztomo_bins is None: #this defines the bin edges if splitting the sample into bins. Preferably pass it as an argument whenusing multiple bins.
+    if ztomo_bins is None: #this defines the bin edges if splitting the sample into bins. 
+        #Preferably pass it as an argument when using multiple bins.
         ztomo_bins=np.linspace(zmin, min(2,zmax), ntomo_bins+1) #define based on experiment
     
     galaxy_bin_info = source_tomo_bins(zphoto_bin_centre=zphoto_bin_centre, p_zphoto=p_zphoto, 
@@ -428,5 +378,5 @@ def DESI_elg_bins(ntomo_bins=1, nside=1024, use_window=True, bg1=None, bz1 = Non
                                        ntomo_bins = ntomo_bins, mag_fact=mag_fact, 
                                        ztomo_bins=ztomo_bins,nside=nside, 
                                        use_window=use_window,bg1=bg1, bz1 = bz1, l=l, 
-                                       gal_window_arr = gal_window_arr)
+                                       gal_mask = gal_mask, gal_window_arr = gal_window_arr)
     return galaxy_bin_info
