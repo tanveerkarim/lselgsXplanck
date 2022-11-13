@@ -104,8 +104,8 @@ def set_window_here(ztomo_bins_dict={}, nside=1024, mask = None, cmb=False,
             window_map = window_map.astype(np.float64)
             window_map_noise = np.sqrt(window_map)
         
-            if mask is None:
-                mask=(window_map != hp.UNSEEN) #FIXME: input proper mask if possible
+            # if mask is None:
+            #     mask=(window_map != hp.UNSEEN) #FIXME: input proper mask if possible
             window_map[~mask]=hp.UNSEEN
             window_map_noise[~mask]=hp.UNSEEN
         
