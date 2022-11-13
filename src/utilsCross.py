@@ -246,7 +246,7 @@ def source_tomo_bins(zphoto_bin_centre=None, p_zphoto=None, ntomo_bins=None,
                                         mask = gal_mask, window_map_arr = gal_window_arr)
     return ztomo_bins_dict
 
-def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax=1090, 
+def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax_cmb=1090, 
                   SN_file = None, cmb_window_map_arr = None): #unit_win=False):
     """
     This function prepares the cmb lensing map into format required for input into skylens for theory predictions.
@@ -257,7 +257,7 @@ def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax=1090,
     l : numpy array of multipole range
     use_window = Flag to use the CMB window function
     nside = NSIDE of the window maps based on healpix formalism
-    zmax = power spectrum of CMB lensing should be integrated up to this value; default is 1090; for AbacusSummit this is 2.45
+    zmax_cmb = power spectrum of CMB lensing should be integrated up to this value; default is 1090; for AbacusSummit this is 2.45
     SN_file = file path to the CMB SNR 
     cmb_window_map_arr = numpy array containing file path to the CMB Window Map 
     
@@ -280,7 +280,7 @@ def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax=1090,
                                  tomo_bin_indx=0,zbin_centre=np.atleast_1d(zs),
                                  p_zspec=np.atleast_1d(1), ndensity=np.array([0]), bg1=np.array([1]), bz1 = None)
     ztomo_bins_dict['n_bins']=1 #easy to remember the counts
-    ztomo_bins_dict['zmax']=np.atleast_1d([zmax])
+    ztomo_bins_dict['zmax_cmb']=np.atleast_1d([zmax_cmb])
     ztomo_bins_dict['nz']=1
 
     SN_read=np.genfromtxt(SN_file, names=('l','nl','nl+cl'))
