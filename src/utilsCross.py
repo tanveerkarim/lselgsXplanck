@@ -293,9 +293,11 @@ def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax_cmb=1090,
                                    nside=nside, cmb=True, window_map_arr = cmb_window_map_arr)
     return ztomo_bins_dict
 
-def DESI_elg_bins(ntomo_bins=1, nside=1024, use_window=True, bg1=None, bz1 = None,
-                  l=None, mag_fact=0, ztomo_bins=None, dndz_arr = None, 
-                  gal_mask = None, gal_window_arr = None):
+def DESI_elg_bins(l=None, nside=1024, ntomo_bins=1, ztomo_bins=None, 
+                    bg1=None, bz1 = None, mag_fact=0, 
+                  dndz_arr = None, 
+                  gal_mask = None, gal_window_arr = None,
+                  use_window=True):
     """
     Returns tomographic bin Skylens object for power spectrum measurement
     
