@@ -168,10 +168,12 @@ def zbin_pz_norm(ztomo_bins_dict={},tomo_bin_indx=None,zbin_centre=None,p_zspec=
     return ztomo_bins_dict
 
 def source_tomo_bins(zphoto_bin_centre=None, p_zphoto=None, ntomo_bins=None, 
-                     ndensity=2400/3600, ztomo_bins=None, nside=256,
-                     use_window=False, bg1=None, bz1 = None, l=None, mag_fact=0,
-                     use_shot_noise=True, gal_mask = None,
-                     gal_window_arr = None):
+                     ndensity=2400/3600, ztomo_bins=None, 
+                     nside=256, l=None, 
+                     bg1=None, bz1 = None, mag_fact=0,
+                     use_shot_noise=True, 
+                     gal_mask = None, gal_window_arr = None,
+                     use_window=False):
     """
         Returns dict object with tomographic information of galaxies as input for Skylens.
         
@@ -242,8 +244,9 @@ def source_tomo_bins(zphoto_bin_centre=None, p_zphoto=None, ntomo_bins=None,
     ztomo_bins_dict['z_bins']=ztomo_bins
     
     if use_window:
-        ztomo_bins_dict=set_window_here(ztomo_bins_dict=ztomo_bins_dict,nside=nside, 
-                                        mask = gal_mask, window_map_arr = gal_window_arr)
+        ztomo_bins_dict=set_window_here(ztomo_bins_dict=ztomo_bins_dict, nside=nside, 
+                                        mask = gal_mask, cmb = False, 
+                                        window_map_arr = gal_window_arr)
     return ztomo_bins_dict
 
 def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax_cmb=1090, 
