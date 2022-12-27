@@ -3,69 +3,18 @@
 import itertools
 import numpy as np
 
-def bin_mat(r=[],mat=[],r_bins=[]):
-    """Sukhdeep's Code to bins data and covariance arrays
-
-    Input:
-    -----
-        r  : array which will be used to bin data, e.g. ell values
-        mat : array or matrix which will be binned, e.g. Cl values
-        bins : array that defines the left edge of the bins,
-               bins is the same unit as r
-
-    Output:
-    ------
-        bin_center : array of mid-point of the bins, e.g. ELL values
-        mat_int : binned array or matrix
-    """
-
-    bin_center=0.5*(r_bins[1:]+r_bins[:-1])
-    n_bins=len(bin_center)
-    ndim=len(mat.shape)
-    mat_int=np.zeros([n_bins]*ndim,dtype='float64')
-    norm_int=np.zeros([n_bins]*ndim,dtype='float64')
-    bin_idx=np.digitize(r,r_bins)-1
-    r2=np.sort(np.unique(np.append(r,r_bins))) #this takes care of problems around bin edges
-    dr=np.gradient(r2)
-    r2_idx=[i for i in np.arange(len(r2)) if r2[i] in r]
-    dr=dr[r2_idx]
-    r_dr=r*dr
-
-    ls=['i','j','k','l']
-    s1=ls[0]
-    s2=ls[0]
-    r_dr_m=r_dr
-    for i in np.arange(ndim-1):
-        s1=s2+','+ls[i+1]
-        s2+=ls[i+1]
-        r_dr_m=np.einsum(s1+'->'+s2,r_dr_m,r_dr)#works ok for 2-d case
-
-    mat_r_dr=mat*r_dr_m
-    for indxs in itertools.product(np.arange(min(bin_idx),n_bins),repeat=ndim):
-        x={}#np.zeros_like(mat_r_dr,dtype='bool')
-        norm_ijk=1
-        mat_t=[]
-        for nd in np.arange(ndim):
-            slc = [slice(None)] * (ndim)
-            #x[nd]=bin_idx==indxs[nd]
-            slc[nd]=bin_idx==indxs[nd]
-            if nd==0:
-                mat_t=mat_r_dr[slc]
-            else:
-                mat_t=mat_t[slc]
-            norm_ijk*=np.sum(r_dr[slc[nd]])
-        if norm_ijk==0:
-            continue
-        mat_int[indxs]=np.sum(mat_t)/norm_ijk
-        norm_int[indxs]=norm_ijk
-    return bin_center,mat_int
-
+import sys
+sys.path.insert(0,'/global/homes/t/tanveerk/SkyLens/') #path to skylens
+sys.path.insert(0,'/global/homes/t/tanveerk/SkyLens/skylens') #path to skylens
+import skylens
+import healpy as hp
+from scipy.interpolate import interp1d
 
 import pandas as pd
 import numpy as np
-from skylens import *
+import skylens
 
-def set_window_here(ztomo_bins_dict={}, nside=1024, mask = None, cmb=False, 
+def set_window_here(ztomo_bins_dict={}, nside=1024, maskfile = None, cmb=False, 
                     window_map_arr = None): #unit_win=False): 
     """
     This function sets the window functions for the datasets. These windows are necessary for converting cl to pseudo-cl.
@@ -76,7 +25,7 @@ def set_window_here(ztomo_bins_dict={}, nside=1024, mask = None, cmb=False,
     ztomo_bins_dict : dictionary processed by source_tomo_bins function that 
                       contains information on the different tomographic bins for Skylens
     nside : NSIDE of the window maps based on healpix formalism
-    mask : survey geometry mask in healpix format, same NSIDE as nside
+    maskfile : file location of  mask
     cmb : flag for using cmb window function
     window_map_arr : numpy array containing list of window map file paths
     
@@ -96,6 +45,7 @@ def set_window_here(ztomo_bins_dict={}, nside=1024, mask = None, cmb=False,
     
     for i in np.arange(ztomo_bins_dict['n_bins']):
         if cmb:
+            print("cmb yes")
             window_map=np.load(window_map_arr[i])
             window_map_noise = window_map
             print("processing cmb lensing window")
@@ -106,6 +56,7 @@ def set_window_here(ztomo_bins_dict={}, nside=1024, mask = None, cmb=False,
         
             # if mask is None:
             #     mask=(window_map != hp.UNSEEN) #FIXME: input proper mask if possible
+            mask = np.load(maskfile)
             window_map[~mask]=hp.UNSEEN
             window_map_noise[~mask]=hp.UNSEEN
         
@@ -172,7 +123,7 @@ def source_tomo_bins(zphoto_bin_centre=None, p_zphoto=None, ntomo_bins=None,
                      nside=256, l=None, 
                      bg1=None, bz1 = None, mag_fact=0,
                      use_shot_noise=True, 
-                     gal_mask = None, gal_window_arr = None,
+                     gal_maskfile = None, gal_window_arr = None,
                      use_window=False):
     """
         Returns dict object with tomographic information of galaxies as input for Skylens.
@@ -234,18 +185,19 @@ def source_tomo_bins(zphoto_bin_centre=None, p_zphoto=None, ntomo_bins=None,
             
         zmax=max([zmax,max(ztomo_bins_dict[i]['z'])])
         if use_shot_noise:
-            ztomo_bins_dict['SN']['galaxy'][:,i,i]=galaxy_shot_noise_calc(zg1=ztomo_bins_dict[i],
+            ztomo_bins_dict['SN']['galaxy'][:,i,i]= skylens.galaxy_shot_noise_calc(zg1=ztomo_bins_dict[i],
                                                                   zg2=ztomo_bins_dict[i])
 
     ztomo_bins_dict['n_bins']=ntomo_bins #easy to remember the counts
     ztomo_bins_dict['zmax']=zmax
+    #print(f'zmax = {zmax}')
     ztomo_bins_dict['zp']=zphoto_bin_centre
     ztomo_bins_dict['pz']=p_zphoto
     ztomo_bins_dict['z_bins']=ztomo_bins
     
     if use_window:
         ztomo_bins_dict=set_window_here(ztomo_bins_dict=ztomo_bins_dict, nside=nside, 
-                                        mask = gal_mask, cmb = False, 
+                                        maskfile = gal_maskfile, cmb = False, 
                                         window_map_arr = gal_window_arr)
     return ztomo_bins_dict
 
@@ -283,7 +235,7 @@ def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax_cmb=1090,
                                  tomo_bin_indx=0,zbin_centre=np.atleast_1d(zs),
                                  p_zspec=np.atleast_1d(1), ndensity=np.array([0]), bg1=np.array([1]), bz1 = None)
     ztomo_bins_dict['n_bins']=1 #easy to remember the counts
-    ztomo_bins_dict['zmax_cmb']=np.atleast_1d([zmax_cmb])
+    ztomo_bins_dict['zmax']=np.atleast_1d([zmax_cmb])
     ztomo_bins_dict['nz']=1
 
     SN_read=np.genfromtxt(SN_file, names=('l','nl','nl+cl'))
@@ -291,6 +243,7 @@ def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax_cmb=1090,
     SN=SN_intp(l) 
     ztomo_bins_dict['SN']={}
     ztomo_bins_dict['SN']['kappa']=SN.reshape(len(SN),1,1)
+    
     if use_window:
         ztomo_bins_dict=set_window_here(ztomo_bins_dict=ztomo_bins_dict,
                                    nside=nside, cmb=True, window_map_arr = cmb_window_map_arr)
@@ -299,7 +252,7 @@ def cmb_bins_here(zs=1090,l=None,use_window=True, nside=1024,zmax_cmb=1090,
 def DESI_elg_bins(l=None, nside=1024, ntomo_bins=1, ztomo_bins=None, 
                     bg1=None, bz1 = None, mag_fact=0, 
                   dndz_arr = None, 
-                  gal_mask = None, gal_window_arr = None,
+                  gal_maskfile = None, gal_window_arr = None,
                   use_window=True):
     """
     Returns tomographic bin Skylens object for power spectrum measurement
@@ -383,5 +336,5 @@ def DESI_elg_bins(l=None, nside=1024, ntomo_bins=1, ztomo_bins=None,
                                        ntomo_bins = ntomo_bins, mag_fact=mag_fact, 
                                        ztomo_bins=ztomo_bins,nside=nside, 
                                        use_window=use_window,bg1=bg1, bz1 = bz1, l=l, 
-                                       gal_mask = gal_mask, gal_window_arr = gal_window_arr)
+                                       gal_maskfile = gal_maskfile, gal_window_arr = gal_window_arr)
     return galaxy_bin_info
