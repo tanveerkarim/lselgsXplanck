@@ -12,7 +12,7 @@ from scipy.interpolate import interp1d
 
 import pandas as pd
 import numpy as np
-import skylens
+
 
 def set_window_here(ztomo_bins_dict={}, nside=1024, maskfile = None, cmb=False, 
                     window_map_arr = None): #unit_win=False): 
@@ -338,3 +338,88 @@ def DESI_elg_bins(l=None, nside=1024, ntomo_bins=1, ztomo_bins=None,
                                        use_window=use_window,bg1=bg1, bz1 = bz1, l=l, 
                                        gal_maskfile = gal_maskfile, gal_window_arr = gal_window_arr)
     return galaxy_bin_info
+
+def SkyLens_cls(nside, l, cosmo_params, pk_params,
+                dndz_dict, gal_window_dict, gal_maskfile,
+                cmb_SN_file, cmb_window_map_arr,
+                z_cmb = 1090, zmax_cmb = 1090,
+                bg1 = None, bz1 = None, mag_fact = 0, 
+                zmin_gal = 0.0, zmax_gal = 1.6, nz = 140, 
+                use_window = False,
+                Win = None,
+               do_cov = False, bin_cl = True, l_bins = None,
+                Tri_cov = False, SSV_cov= False,tidal_SSV_cov=False,
+               use_binned_l = False, wigner_files = None, 
+               store_win = True, window_lmax = None, 
+                corrs = None, scheduler_info = None):
+    
+    """Returns Skylens object for C_ell calculation based on given maps.
+    
+    Inputs:
+        nside (int) : nside for healpy
+        l (array) : multipoles to evaluate 
+        dndz_dict (dict) : dictionary containing dndz file location per tomographic bin
+        gal_window_dict (dict) : dictionary containing galaxy window function file 
+                                location per tomographic bin
+        gal_maskfile (str) : Galaxy mask file location
+        cmb_SN_file (str) : CMB noise curve file location 
+        cmb_window_map_arr (str) : CMB window function file location
+        z_cmb (float) : redshift of CMB 
+        zmax_cmb (float) : maximum redshift where CMB lensing kernel should be integrated up to
+        bg1 (float) : linear bias term for galaxies
+        bz1 (dict) : redshift dependent galaxy bias
+        mag_fact (float) : magnification bias 
+        zmin_gal (float) : min redshift for galaxy sample
+        zmax_gal (float) : max redshift for galaxy sample
+        nz (int) : number of redshifts where P(k) will be evaluated
+        use_window (bool) : whether to evaluate window function
+        Win (dict) : optional dict; pass saved window calculated before
+        
+    Returns:
+        kappa0 (dict) : Skylens dict containing Cls, pCls, coupling matrices
+    """
+    
+    results = {}
+            
+    #tomographed redshift bins for the galaxies
+    zl_bin = DESI_elg_bins(l=l, nside = nside, ntomo_bins = len(gal_window_dict), 
+                                 bg1 = bg1, bz1 = bz1, mag_fact = mag_fact, 
+                                 dndz_arr = dndz_dict, 
+                                 gal_maskfile = gal_maskfile, gal_window_arr = gal_window_dict,
+                                use_window = use_window)
+
+    #redshift bins for cmb
+    zs_bin = cmb_bins_here(zs = z_cmb, l=l, nside = nside, 
+                                 zmax_cmb = zmax_cmb, SN_file = cmb_SN_file, 
+                                 cmb_window_map_arr = cmb_window_map_arr,
+                                use_window = use_window) # lensing source bin
+    
+    #tmpz1 = np.linspace(max(zmin_gal, 1e-4), zmax_gal, nz)
+    tmpz1 = np.linspace(0.01, zmax_gal + 0.5, nz)
+    #tmpz2 = np.logspace(-4, np.log10(zmax_cmb), nz) #
+    #z_PS = np.sort(np.unique(np.around(np.append(tmpz1, tmpz2), 
+    #                                   decimals = 3))) #redshifts where P(k) will be evaluated
+    z_PS = tmpz1
+    print("z_PS: ", len(z_PS))
+    
+    if Win is not None:
+        kappa0 = skylens.Skylens(kappa_zbins=zs_bin,do_cov=do_cov,bin_cl=bin_cl,l_bins=l_bins,l=l, 
+                                 galaxy_zbins=zl_bin,
+                                       use_window=use_window,Tri_cov=Tri_cov, Win = Win,
+                                       use_binned_l=use_binned_l,wigner_files=wigner_files,
+                                       SSV_cov=SSV_cov,tidal_SSV_cov=tidal_SSV_cov,
+                                       store_win=store_win,window_lmax=window_lmax,
+                                       corrs=corrs, scheduler_info=scheduler_info, log_z_PS=1,
+                                       cosmo_params = cosmo_params, z_PS=z_PS, pk_params = pk_params)
+        
+    else:
+        kappa0 = skylens.Skylens(kappa_zbins=zs_bin,do_cov=do_cov,bin_cl=bin_cl,l_bins=l_bins,l=l, 
+                                 galaxy_zbins=zl_bin,
+                                       use_window=use_window,Tri_cov=Tri_cov, #Win = Win,
+                                       use_binned_l=use_binned_l,wigner_files=wigner_files,
+                                       SSV_cov=SSV_cov,tidal_SSV_cov=tidal_SSV_cov,
+                                       store_win=store_win,window_lmax=window_lmax,
+                                       corrs=corrs, scheduler_info=scheduler_info, log_z_PS=1,
+                                       cosmo_params = cosmo_params, z_PS=z_PS, pk_params = pk_params)
+    
+    return kappa0
