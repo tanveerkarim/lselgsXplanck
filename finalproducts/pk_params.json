@@ -1,0 +1,1 @@
+{"non_linear": 1, "kmax": 10, "kmin": 0.0003, "nk": 500, "scenario": "dmo", "halofit_version": "takahashi", "pk_func": "camb_pk"}
